@@ -1,99 +1,205 @@
 
-/* Demo login details */
-const correctUsername = "admin";
-const correctPassword = "12345";
+// ==========================================
+// N-STRIDE - PERSONAL TASK MANAGEMENT SYSTEM
+// ==========================================
 
-/* Sample task data */
-let tasks = [
-    {
-        id: 1,
-        name: "Complete IMS566 Assignment",
-        category: "Study",
-        date: "2026-11-05",
-        status: "In Progress"
-    },
-    {
-        id: 2,
-        name: "Revise lecture notes",
-        category: "Study",
-        date: "2026-11-02",
-        status: "Pending"
-    },
-    {
-        id: 3,
-        name: "Organise weekly schedule",
-        category: "Personal",
-        date: "2026-11-01",
-        status: "Completed"
-    },
-    {
-        id: 4,
-        name: "Prepare project presentation",
-        category: "Work",
-        date: "2026-11-08",
-        status: "Pending"
+// 1. GLOBAL VARIABLES
+let users = JSON.parse(localStorage.getItem("nStrideUsers")) || [];
+let tasks = [];
+let nextTaskId = 1;
+let taskChart = null;
+let currentUser = null;
+
+
+// ==========================================
+// 2. SAVE AND LOAD TASKS
+// ==========================================
+
+// Save tasks according to the logged-in username
+function saveTasks() {
+    if (!currentUser) return;
+
+    localStorage.setItem(
+        "nStrideTasks_" + currentUser.username,
+        JSON.stringify(tasks)
+    );
+}
+
+// Load tasks belonging to the logged-in user
+function loadUserTasks() {
+    if (!currentUser) return;
+
+    tasks = JSON.parse(
+        localStorage.getItem(
+            "nStrideTasks_" + currentUser.username
+        )
+    ) || [];
+
+    nextTaskId = tasks.length > 0
+        ? Math.max(...tasks.map(task => task.id)) + 1
+        : 1;
+}
+
+
+// ==========================================
+// 3. LOGIN AND REGISTER
+// ==========================================
+
+// Show Register Section
+document.getElementById("showRegister")?.addEventListener("click", function () {
+    document.getElementById("loginSection").classList.add("d-none");
+    document.getElementById("registerSection").classList.remove("d-none");
+});
+
+// Show Login Section
+document.getElementById("showLogin")?.addEventListener("click", function () {
+    document.getElementById("registerSection").classList.add("d-none");
+    document.getElementById("loginSection").classList.remove("d-none");
+});
+
+
+// REGISTER
+document.getElementById("registerForm")?.addEventListener("submit", function (e) {
+    e.preventDefault();
+
+    const name = document.getElementById("registerName").value.trim();
+    const username = document.getElementById("registerUsername").value.trim();
+    const password = document.getElementById("registerPassword").value;
+    const confirmPassword = document.getElementById("confirmPassword").value;
+    const message = document.getElementById("registerMessage");
+
+    message.textContent = "";
+    message.className = "mt-2";
+
+    // Check password
+    if (password !== confirmPassword) {
+        message.textContent = "Passwords do not match!";
+        message.classList.add("text-danger");
+        return;
     }
-];
 
-let nextTaskId = 5;
-let taskChart;
+    // Check existing username
+    const existingUser = users.find(
+        user => user.username.toLowerCase() === username.toLowerCase()
+    );
 
-/* Login function */
-document.getElementById("loginForm").addEventListener("submit", function (event) {
-    event.preventDefault();
+    if (existingUser) {
+        message.textContent = "Username already exists!";
+        message.classList.add("text-danger");
+        return;
+    }
 
-    const username = document.getElementById("username").value.trim();
-    const password = document.getElementById("password").value;
+    // Create new account
+    const newUser = {
+        name: name,
+        username: username,
+        password: password
+    };
+
+    users.push(newUser);
+
+    localStorage.setItem("nStrideUsers", JSON.stringify(users));
+
+    // Create an empty task list for the new account
+    localStorage.setItem(
+        "nStrideTasks_" + username,
+        JSON.stringify([])
+    );
+
+    message.textContent = "Registration successful! You can now login.";
+    message.classList.add("text-success");
+
+    document.getElementById("registerForm").reset();
+});
+
+
+// LOGIN
+document.getElementById("loginForm")?.addEventListener("submit", function (e) {
+    e.preventDefault();
+
+    const username = document.getElementById("loginUsername").value.trim();
+    const password = document.getElementById("loginPassword").value;
     const message = document.getElementById("loginMessage");
 
-    if (username === correctUsername && password === correctPassword) {
-        document.getElementById("loginPage").classList.add("d-none");
-        document.getElementById("mainPage").classList.remove("d-none");
+    message.textContent = "";
+    message.className = "mt-2";
 
-        message.textContent = "";
-        showPage("dashboardPage");
-        updateDashboard();
-        displayTasks();
-    } else {
-        message.textContent = "Invalid username or password. Please try again.";
+    // Check account details
+    const user = users.find(
+        user =>
+            user.username.toLowerCase() === username.toLowerCase() &&
+            user.password === password
+    );
+
+    if (!user) {
+        message.textContent = "Invalid username or password!";
+        message.classList.add("text-danger");
+        return;
     }
-});
 
-/* Logout function */
-document.getElementById("logoutButton").addEventListener("click", function () {
-    document.getElementById("mainPage").classList.add("d-none");
-    document.getElementById("loginPage").classList.remove("d-none");
+    // Set current user
+    currentUser = user;
+
+    // Load this user's saved tasks
+    loadUserTasks();
+
+    // Show main application
+    document.getElementById("authPage").classList.add("d-none");
+    document.getElementById("mainPage").classList.remove("d-none");
+
+    document.getElementById("welcomeUser").textContent =
+        "Welcome, " + currentUser.name + "!";
+
+    // Update dashboard information
+    updateDashboard();
+    displayTasks();
+    updateCategories();
+
+    showPage("dashboardPage");
 
     document.getElementById("loginForm").reset();
-    document.getElementById("loginMessage").textContent = "";
 });
 
-/* Navigation function */
-document.querySelectorAll("[data-page]").forEach(function (link) {
-    link.addEventListener("click", function (event) {
-        event.preventDefault();
 
-        const pageId = this.getAttribute("data-page");
-        showPage(pageId);
-    });
+// LOGOUT
+document.getElementById("logoutButton")?.addEventListener("click", function () {
+
+    // Save before logout
+    saveTasks();
+
+    currentUser = null;
+    tasks = [];
+    nextTaskId = 1;
+
+    document.getElementById("mainPage").classList.add("d-none");
+    document.getElementById("authPage").classList.remove("d-none");
+
+    document.getElementById("loginSection").classList.remove("d-none");
+    document.getElementById("registerSection").classList.add("d-none");
+
+    document.getElementById("loginForm").reset();
 });
 
-/* Show selected page */
+
+// ==========================================
+// 4. PAGE NAVIGATION
+// ==========================================
+
 function showPage(pageId) {
-    document.querySelectorAll(".contentPage").forEach(function (page) {
-        page.classList.add("d-none");
+
+    const pages = [
+        "dashboardPage",
+        "tasksPage",
+        "categoriesPage"
+    ];
+
+    pages.forEach(page => {
+        document.getElementById(page)?.classList.add("d-none");
     });
 
-    document.getElementById(pageId).classList.remove("d-none");
+    document.getElementById(pageId)?.classList.remove("d-none");
 
-    document.querySelectorAll("[data-page]").forEach(function (link) {
-        link.classList.remove("active");
-
-        if (link.getAttribute("data-page") === pageId) {
-            link.classList.add("active");
-        }
-    });
-
+    // Refresh information when opening a page
     if (pageId === "dashboardPage") {
         updateDashboard();
     }
@@ -107,126 +213,178 @@ function showPage(pageId) {
     }
 }
 
-/* Display tasks in the table */
+
+// Navigation buttons
+document.querySelectorAll("[data-page]").forEach(button => {
+    button.addEventListener("click", function () {
+        const pageId = this.getAttribute("data-page");
+        showPage(pageId);
+    });
+});
+
+
+// ==========================================
+// 5. DISPLAY TASKS
+// ==========================================
+
 function displayTasks() {
+
     const tableBody = document.getElementById("taskTableBody");
-    const searchText = document.getElementById("searchTask").value.toLowerCase();
-    const selectedStatus = document.getElementById("statusFilter").value;
+    const emptyMessage = document.getElementById("emptyMessage");
+
+    if (!tableBody) return;
 
     tableBody.innerHTML = "";
 
-    const filteredTasks = tasks.filter(function (task) {
-        const matchesSearch = task.name.toLowerCase().includes(searchText);
-        const matchesStatus = selectedStatus === "All" || task.status === selectedStatus;
+    const searchValue =
+        document.getElementById("searchTask")?.value.toLowerCase() || "";
+
+    const selectedStatus =
+        document.getElementById("statusFilter")?.value || "All";
+
+    // Search and filter tasks
+    const filteredTasks = tasks.filter(task => {
+
+        const matchesSearch =
+            task.name.toLowerCase().includes(searchValue);
+
+        const matchesStatus =
+            selectedStatus === "All" ||
+            task.status === selectedStatus;
 
         return matchesSearch && matchesStatus;
     });
 
-    filteredTasks.forEach(function (task) {
-        const row = document.createElement("tr");
-
-        const nameCell = document.createElement("td");
-        nameCell.textContent = task.name;
-
-        const categoryCell = document.createElement("td");
-        categoryCell.textContent = task.category;
-
-        const dateCell = document.createElement("td");
-        dateCell.textContent = task.date;
-
-        const statusCell = document.createElement("td");
-        const statusBadge = document.createElement("span");
-
-        statusBadge.classList.add("badge");
-
-        if (task.status === "Completed") {
-            statusBadge.classList.add("text-bg-success");
-        } else if (task.status === "In Progress") {
-            statusBadge.classList.add("text-bg-primary");
-        } else {
-            statusBadge.classList.add("text-bg-warning");
-        }
-
-        statusBadge.textContent = task.status;
-        statusCell.appendChild(statusBadge);
-
-        const actionCell = document.createElement("td");
-        const actionGroup = document.createElement("div");
-        actionGroup.classList.add("d-flex", "flex-wrap", "gap-1");
-
-        const statusButton = document.createElement("button");
-        statusButton.classList.add("btn", "btn-sm", "btn-outline-primary");
-        statusButton.textContent = "Next Status";
-        statusButton.addEventListener("click", function () {
-            changeStatus(task.id);
-        });
-
-        const deleteButton = document.createElement("button");
-        deleteButton.classList.add("btn", "btn-sm", "btn-outline-danger");
-        deleteButton.textContent = "Delete";
-        deleteButton.addEventListener("click", function () {
-            deleteTask(task.id);
-        });
-
-        actionGroup.appendChild(statusButton);
-        actionGroup.appendChild(deleteButton);
-        actionCell.appendChild(actionGroup);
-
-        row.appendChild(nameCell);
-        row.appendChild(categoryCell);
-        row.appendChild(dateCell);
-        row.appendChild(statusCell);
-        row.appendChild(actionCell);
-
-        tableBody.appendChild(row);
-    });
-
-    document.getElementById("emptyMessage").classList.toggle(
-        "d-none",
-        filteredTasks.length > 0
-    );
-}
-
-/* Search and filter */
-document.getElementById("searchTask").addEventListener("input", displayTasks);
-document.getElementById("statusFilter").addEventListener("change", displayTasks);
-
-/* Add a new task */
-document.getElementById("taskForm").addEventListener("submit", function (event) {
-    event.preventDefault();
-
-    const newTask = {
-        id: nextTaskId,
-        name: document.getElementById("taskName").value.trim(),
-        category: document.getElementById("taskCategory").value,
-        date: document.getElementById("taskDate").value,
-        status: document.getElementById("taskStatus").value
-    };
-
-    if (!newTask.name || !newTask.date) {
+    if (filteredTasks.length === 0) {
+        emptyMessage?.classList.remove("d-none");
         return;
     }
 
+    emptyMessage?.classList.add("d-none");
+
+    filteredTasks.forEach(task => {
+
+        const row = document.createElement("tr");
+
+        const statusClass = {
+            "Pending": "bg-warning text-dark",
+            "In Progress": "bg-primary",
+            "Completed": "bg-success"
+        };
+
+        row.innerHTML = `
+            <td>${escapeHTML(task.name)}</td>
+            <td>${escapeHTML(task.category)}</td>
+            <td>${escapeHTML(task.date)}</td>
+            <td>
+                <span class="badge ${statusClass[task.status] || "bg-secondary"}">
+                    ${escapeHTML(task.status)}
+                </span>
+            </td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary me-1"
+                    onclick="changeTaskStatus(${task.id})">
+                    Update
+                </button>
+
+                <button class="btn btn-sm btn-outline-danger"
+                    onclick="deleteTask(${task.id})">
+                    Delete
+                </button>
+            </td>
+        `;
+
+        tableBody.appendChild(row);
+    });
+}
+
+
+// Escape user-entered text before displaying it in HTML
+function escapeHTML(value) {
+    return String(value).replace(/[&<>"']/g, character => {
+        const entities = {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;"
+        };
+
+        return entities[character];
+    });
+}
+
+
+// Search tasks
+document.getElementById("searchTask")?.addEventListener("input", displayTasks);
+
+
+// Filter tasks
+document.getElementById("statusFilter")?.addEventListener("change", displayTasks);
+
+
+// ==========================================
+// 6. ADD NEW TASK
+// ==========================================
+
+document.getElementById("taskForm")?.addEventListener("submit", function (e) {
+    e.preventDefault();
+
+    if (!currentUser) return;
+
+    const taskName = document.getElementById("taskName").value.trim();
+    const taskCategory = document.getElementById("taskCategory").value;
+    const taskDate = document.getElementById("taskDate").value;
+    const taskStatus = document.getElementById("taskStatus").value;
+
+    if (!taskName || !taskCategory || !taskDate || !taskStatus) {
+        alert("Please complete all task details.");
+        return;
+    }
+
+    // Create new task
+    const newTask = {
+        id: nextTaskId++,
+        name: taskName,
+        category: taskCategory,
+        date: taskDate,
+        status: taskStatus
+    };
+
     tasks.push(newTask);
-    nextTaskId++;
 
-    this.reset();
+    // Save tasks immediately
+    saveTasks();
 
-    const modalElement = document.getElementById("taskModal");
-    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
-    modal.hide();
-
+    // Refresh information
     displayTasks();
     updateDashboard();
     updateCategories();
+
+    // Reset form
+    document.getElementById("taskForm").reset();
+
+    // Close Bootstrap modal
+    const modalElement = document.getElementById("taskModal");
+    const modalInstance = bootstrap.Modal.getInstance(modalElement);
+
+    if (modalInstance) {
+        modalInstance.hide();
+    }
 });
 
-/* Change task status */
-function changeStatus(taskId) {
-    const task = tasks.find(function (item) {
-        return item.id === taskId;
-    });
 
+// ==========================================
+// 7. CHANGE TASK STATUS
+// ==========================================
+
+function changeTaskStatus(id) {
+
+    const task = tasks.find(task => task.id === id);
+
+    if (!task) return;
+
+    // Change status
     if (task.status === "Pending") {
         task.status = "In Progress";
     } else if (task.status === "In Progress") {
@@ -235,84 +393,143 @@ function changeStatus(taskId) {
         task.status = "Pending";
     }
 
+    // Save updated status
+    saveTasks();
+
     displayTasks();
     updateDashboard();
     updateCategories();
 }
 
-/* Delete a task */
-function deleteTask(taskId) {
-    const confirmDelete = confirm("Are you sure you want to delete this task?");
 
-    if (confirmDelete) {
-        tasks = tasks.filter(function (task) {
-            return task.id !== taskId;
-        });
+// ==========================================
+// 8. DELETE TASK
+// ==========================================
 
-        displayTasks();
-        updateDashboard();
-        updateCategories();
-    }
+function deleteTask(id) {
+
+    const confirmation = confirm("Are you sure you want to delete this task?");
+
+    if (!confirmation) return;
+
+    tasks = tasks.filter(task => task.id !== id);
+
+    // Save after deleting
+    saveTasks();
+
+    displayTasks();
+    updateDashboard();
+    updateCategories();
 }
 
-/* Update dashboard numbers and chart */
+
+// ==========================================
+// 9. DASHBOARD SUMMARY AND CHART
+// ==========================================
+
 function updateDashboard() {
+
     const total = tasks.length;
 
-    const pending = tasks.filter(function (task) {
-        return task.status === "Pending";
-    }).length;
+    const pending = tasks.filter(
+        task => task.status === "Pending"
+    ).length;
 
-    const inProgress = tasks.filter(function (task) {
-        return task.status === "In Progress";
-    }).length;
-
-    const completed = tasks.filter(function (task) {
-        return task.status === "Completed";
-    }).length;
+    const completed = tasks.filter(
+        task => task.status === "Completed"
+    ).length;
 
     document.getElementById("totalTasks").textContent = total;
     document.getElementById("pendingTasks").textContent = pending;
     document.getElementById("completedTasks").textContent = completed;
 
-    const chartCanvas = document.getElementById("taskChart");
-
-    if (taskChart) {
-        taskChart.data.datasets[0].data = [pending, inProgress, completed];
-        taskChart.update();
-    } else {
-        taskChart = new Chart(chartCanvas, {
-            type: "doughnut",
-            data: {
-                labels: ["Pending", "In Progress", "Completed"],
-                datasets: [{
-                    data: [pending, inProgress, completed],
-                    backgroundColor: ["#ffc107", "#0d6efd", "#198754"]
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
-            }
-        });
-    }
+    updateChart();
 }
 
-/* Update category totals */
+
+// ==========================================
+// 10. CHART.JS
+// ==========================================
+
+function updateChart() {
+
+    const chartCanvas = document.getElementById("taskChart");
+
+    if (!chartCanvas) return;
+
+    const pending = tasks.filter(
+        task => task.status === "Pending"
+    ).length;
+
+    const inProgress = tasks.filter(
+        task => task.status === "In Progress"
+    ).length;
+
+    const completed = tasks.filter(
+        task => task.status === "Completed"
+    ).length;
+
+    // Destroy previous chart before creating a new one
+    if (taskChart) {
+        taskChart.destroy();
+    }
+
+    taskChart = new Chart(chartCanvas, {
+        type: "doughnut",
+
+        data: {
+            labels: ["Pending", "In Progress", "Completed"],
+
+            datasets: [{
+                label: "Tasks",
+                data: [pending, inProgress, completed],
+                backgroundColor: [
+                    "#ffc107",
+                    "#0d6efd",
+                    "#198754"
+                ],
+                borderWidth: 1
+            }]
+        },
+
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+
+            plugins: {
+                legend: {
+                    position: "bottom"
+                },
+
+                title: {
+                    display: true,
+                    text: "Task Status Overview"
+                }
+            }
+        }
+    });
+}
+
+
+// ==========================================
+// 11. CATEGORIES
+// ==========================================
+
 function updateCategories() {
-    const study = tasks.filter(function (task) {
-        return task.category === "Study";
-    }).length;
 
-    const personal = tasks.filter(function (task) {
-        return task.category === "Personal";
-    }).length;
+    const studyCount = tasks.filter(
+        task => task.category === "Study"
+    ).length;
 
-    const work = tasks.filter(function (task) {
-        return task.category === "Work";
-    }).length;
+    const personalCount = tasks.filter(
+        task => task.category === "Personal"
+    ).length;
 
-    document.getElementById("studyCount").textContent = study + " tasks";
-    document.getElementById("personalCount").textContent = personal + " tasks";
-    document.getElementById("workCount").textContent = work + " tasks";
+    const workCount = tasks.filter(
+        task => task.category === "Work"
+    ).length;
+
+    document.getElementById("studyCount").textContent = studyCount;
+    document.getElementById("personalCount").textContent = personalCount;
+    document.getElementById("workCount").textContent = workCount;
 }
