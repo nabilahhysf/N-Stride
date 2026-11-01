@@ -28,6 +28,3 @@ N-Stride is a simple web-based task management system developed for the IMS566 a
 1. Download or clone the repository.
 2. Open index.html using Google Chrome.
 3. Login using the demo credentials.
-
-## Note
-This project uses sample data and does not require a database or PHP.
