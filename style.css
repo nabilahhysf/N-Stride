@@ -1,0 +1,40 @@
+
+/* General page styling */
+body {
+    min-height: 100vh;
+}
+
+/* Dashboard cards */
+.dashboard-card {
+    border-left: 5px solid;
+}
+
+/* Chart size */
+.chart-container {
+    position: relative;
+    max-width: 500px;
+    height: 300px;
+    margin: 0 auto;
+}
+
+/* Table content */
+.table th,
+.table td {
+    vertical-align: middle;
+}
+
+/* Footer */
+footer {
+    margin-top: 30px;
+}
+
+/* Smaller screens */
+@media (max-width: 576px) {
+    h2 {
+        font-size: 1.5rem;
+    }
+
+    .chart-container {
+        height: 250px;
+    }
+}
